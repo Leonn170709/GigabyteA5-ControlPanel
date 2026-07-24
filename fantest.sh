@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SAFE fan-write validation: forces both fans to 100% for 6s (can only cool),
 # confirms they respond, then ALWAYS restores your exact stock curve (even on
-# error/Ctrl-C via the trap). Run: sudo bash ~/laptop-control/fantest.sh
+# error/Ctrl-C via the trap). Run: sudo bash fantest.sh
 set -uo pipefail
 EC="$(dirname "$0")/ecmem.py"
 CALL=/proc/acpi/call

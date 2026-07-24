@@ -12,7 +12,7 @@ hardware is fully controllable without Windows.
 | **Performance** | Quiet / Balanced / Performance presets and a TDP slider via `ryzenadj`. Lowering TDP is the safe way to cut heat and fan noise. Asks for confirmation above the stock 45 W; hard-clamped to 15-54 W. |
 | **Monitoring** | Live CPU temperature plus real fan duty % and RPM read straight from the firmware. GPU temperature from `sensors`. |
 | **Fans** | Per-fan manual duty, presets, and a software CPU-temperature curve (`_DSM 0x68`). One click back to firmware auto (`0x69 0x0f`), plus a 90 °C watchdog that forces auto by itself. |
-| **RGB** | Keyboard colour, brightness, and a software rainbow cycle over an editable palette (`\_SB.DCHU _DSM`). Mouse RGB (Holtek `04d9:a09f`) is a separate hidraw path and is not implemented. |
+| **RGB** | Keyboard colour, brightness, and a software rainbow cycle over an editable palette (`\_SB.DCHU _DSM`). Single-zone, which is all the firmware exposes. |
 
 The panel closes to a system-tray icon. Quitting it reverts the fans to firmware auto;
 closing to tray leaves your settings running.

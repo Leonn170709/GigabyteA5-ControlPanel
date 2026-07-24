@@ -4,7 +4,7 @@
 set -uo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "run: sudo bash $0"; exit 1; }
 RUSER="${SUDO_USER:-root}"; RHOME="$(getent passwd "$RUSER" | cut -d: -f6)"
-OUT="$RHOME/laptop-control/probe-out"; mkdir -p "$OUT"
+OUT="$(cd "$(dirname "$0")" && pwd)/probe-out"; mkdir -p "$OUT"
 trap 'chown -R "$RUSER" "$OUT" 2>/dev/null' EXIT
 
 modprobe acpi_call 2>/dev/null || { echo "acpi_call missing. Install: paru -S acpi_call-dkms"; exit 2; }

@@ -140,4 +140,4 @@ module_init(a5_init);
 module_exit(a5_exit);
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("GIGABYTE A5 K1 fan + keyboard RGB via _SB.DCHU _DSM");
-MODULE_AUTHOR("leon + Claude");
+MODULE_AUTHOR("Leonn170709");

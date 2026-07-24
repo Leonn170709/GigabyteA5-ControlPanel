@@ -2,13 +2,13 @@
 # READ-ONLY probe for the GIGABYTE A5 K1. Writes nothing to hardware.
 # Dumps the ACPI WMI methods (fan/RGB control ABI) and empirically maps the
 # EC fan/temp registers by diffing an idle vs. under-load snapshot.
-# Run:  sudo bash ~/laptop-control/probe.sh
+# Run:  sudo bash probe.sh
 set -uo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "run with sudo: sudo bash $0"; exit 1; }
 # resolve the REAL invoking user's home (sudo sets HOME=/root otherwise)
 RUSER="${SUDO_USER:-root}"
 RHOME="$(getent passwd "$RUSER" | cut -d: -f6)"
-OUT="$RHOME/laptop-control/probe-out"
+OUT="$(cd "$(dirname "$0")" && pwd)/probe-out"   # next to the script, gitignored
 mkdir -p "$OUT"
 trap 'chown -R "$RUSER" "$OUT" 2>/dev/null' EXIT
 
