@@ -51,6 +51,11 @@ echo ">> Installing NOPASSWD sudo rule for labctl (so the panel never prompts fo
 # The panel drives all privileged actions (keyboard RGB, fans, battery, TDP, live monitor)
 # through this one root harness, no pkexec/polkit. Validate before installing so a bad rule
 # can never lock sudo. ponytail: single narrow rule, one binary, root-owned + immutable path.
+# A sudoers path cannot contain unescaped whitespace, and a half-matching rule just means
+# silent password prompts later. Refuse up front instead.
+case "$DIR" in
+    *[[:space:]]*) echo "!! Clone path contains spaces ($DIR). Move it somewhere without spaces."; exit 1 ;;
+esac
 RULE="$(id -un) ALL=(root) NOPASSWD: $DIR/labctl"
 TMP="$(mktemp)"; printf '%s\n' "$RULE" > "$TMP"
 if sudo visudo -cf "$TMP" >/dev/null; then
