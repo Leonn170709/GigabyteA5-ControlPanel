@@ -16,7 +16,7 @@ sudo rm -f /etc/sudoers.d/labctl /etc/modules-load.d/ryzen_smu.conf
 
 echo ">> Removing launcher + desktop shortcut..."
 rm -f "$HOME/.local/share/applications/laptop-control.desktop" \
-      "$HOME/Desktop/laptop-control.desktop"
+      "$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")/laptop-control.desktop"
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 
 echo ">> Done. Deps (ryzenadj, acpi_call-dkms, ryzen_smu-dkms-git) left installed;"

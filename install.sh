@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs the A5 control panel: deps, privileged helper, polkit policy, launcher.
+# Installs the A5 control panel: deps, DKMS module, sudo rule, launcher.
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
@@ -12,20 +12,32 @@ if [ "$MODEL" != "A5 K1" ] && [ "${1:-}" != "--force" ]; then
     exit 1
 fi
 
+AUR="$(command -v paru || command -v yay || true)"
+if [ -z "$AUR" ]; then
+    echo "!! Need an AUR helper (paru or yay) for ryzenadj / acpi_call-dkms / ryzen_smu-dkms-git."
+    echo "   Install one, or build those three from the AUR by hand, then re-run."
+    exit 1
+fi
+
 echo ">> Installing dependencies (pacman + AUR)..."
 sudo pacman -S --needed --noconfirm python-pyqt6 lm_sensors dkms
 # Install AUR/DKMS deps only if missing. `--needed` isn't enough for VCS (-git) packages:
 # their pkgver comes from `git describe`, so an already-built newer build looks like a
-# "downgrade" vs the AUR's stale .SRCINFO and paru prompts. Skip anything already present.
+# "downgrade" vs the AUR's stale .SRCINFO and the helper prompts. Skip anything present.
 for pkg in ryzenadj acpi_call-dkms ryzen_smu-dkms-git; do
     pacman -Qq "$pkg" &>/dev/null && { echo "   $pkg already installed, skipping"; continue; }
-    paru -S --needed "$pkg"
+    "$AUR" -S --needed "$pkg"
 done
 # ryzen_smu gives ryzenadj real SMU access (else it no-ops via /dev/mem)
 # autoload ryzen_smu on boot, else TDP control silently no-ops after a reboot
 echo "ryzen_smu" | sudo tee /etc/modules-load.d/ryzen_smu.conf >/dev/null
 
 echo ">> Registering kernel module with DKMS (rebuilds on kernel updates; does NOT auto-load)..."
+if [ ! -d "/lib/modules/$(uname -r)/build" ]; then
+    echo "   !! No kernel headers for $(uname -r), the module cannot be built."
+    echo "      Install the -headers package matching your kernel (e.g. linux-headers,"
+    echo "      linux-lts-headers, linux-cachyos-headers) and re-run this script."
+fi
 if command -v dkms >/dev/null; then
     sudo rm -rf /usr/src/a5ctl-0.1
     sudo cp -r "$DIR/kmod" /usr/src/a5ctl-0.1
@@ -53,10 +65,14 @@ echo ">> Installing launcher + desktop shortcut..."
 # .desktop needs absolute paths, so bake in wherever this checkout actually lives
 DESKTOP="$(mktemp)"; sed "s|@DIR@|$DIR|g" "$DIR/laptop-control.desktop" > "$DESKTOP"
 install -Dm644 "$DESKTOP" "$HOME/.local/share/applications/laptop-control.desktop"
-install -Dm755 "$DESKTOP" "$HOME/Desktop/laptop-control.desktop"
+# Localised desktop dir: "Desktop" is wrong on a non-English system (Schreibtisch, Bureau, ...)
+DESKTOP_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || echo "$HOME/Desktop")"
+if [ -d "$DESKTOP_DIR" ]; then
+    install -Dm755 "$DESKTOP" "$DESKTOP_DIR/laptop-control.desktop"
+    # KDE: mark the desktop copy trusted so it launches without the "untrusted" prompt
+    gio set "$DESKTOP_DIR/laptop-control.desktop" metadata::trusted true 2>/dev/null || true
+fi
 rm -f "$DESKTOP"
-# KDE: mark the desktop copy trusted so it launches without the "untrusted" prompt
-gio set "$HOME/Desktop/laptop-control.desktop" metadata::trusted true 2>/dev/null || true
 update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
 
 echo ">> Done. Find 'A5 Control' in the launcher (pin it to the taskbar), or on the Desktop."
