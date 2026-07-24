@@ -58,20 +58,15 @@ It will:
    password (see [Security](#security) for exactly what that allows).
 5. Add an "A5 Control" launcher entry and a shortcut on your desktop.
 
-Then load the module and start the panel:
+Then launch **A5 Control** from your app launcher (right-click → *Pin to Task Manager* if you
+want it in the taskbar) or from the desktop shortcut. That's it.
+
+The `a5ctl` module is deliberately **not** loaded at boot, so fan control is never engaged
+unattended. You don't have to load it by hand either: the panel loads it on demand the
+first time you use manual fans, RGB or the battery limit. To load it yourself anyway:
 
 ```bash
-sudo ./labctl modload
-```
-
-Now launch **A5 Control** from your app launcher (right-click → *Pin to Task Manager* if you
-want it in the taskbar) or from the desktop shortcut.
-
-The module is deliberately **not** auto-loaded at boot, so fan control is never engaged
-unattended. If you want it loaded on every boot anyway:
-
-```bash
-echo a5ctl | sudo tee /etc/modules-load.d/a5ctl.conf
+sudo ./labctl modload      # or: echo a5ctl | sudo tee /etc/modules-load.d/a5ctl.conf
 ```
 
 ### Verify it works
@@ -87,7 +82,7 @@ If `labctl mon` prints live RPM values, the firmware path is working.
 
 **`Invalid module format` after a kernel update, panel says "Kernel module not available"**
 
-DKMS rebuilds the module for the new kernel, but the module still has to be loaded:
+DKMS rebuilds the module for the new kernel, but a stale build cannot be loaded. Reload it:
 
 ```bash
 sudo ./labctl modload
