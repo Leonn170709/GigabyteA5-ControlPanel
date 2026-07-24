@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=A5 Control
+Comment=RGB, power and thermal control for GIGABYTE A5
+Exec=/usr/bin/python3 @DIR@/panel.py
+Icon=@DIR@/icon.svg
+Terminal=false
+StartupWMClass=laptop-control
+SingleMainWindow=true
+Categories=System;Settings;
+Keywords=fan;rgb;power;tdp;thermal;

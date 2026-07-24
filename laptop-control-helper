@@ -1,0 +1,107 @@
+#!/usr/bin/env python3
+"""Privileged helper for the A5 control panel. Runs as root via pkexec/polkit.
+
+Talks to the GIGABYTE firmware through acpi_call (mutex-protected WMI method
+WMBB) — never pokes raw EC bytes. Subcommands are a fixed, validated set.
+
+  monitor            stream one JSON line/sec: {"cpu","duty","rpm1","rpm2"}
+  read               print one JSON sample and exit
+  set-tdp <watts>    apply CPU power limit via ryzenadj (15..54)
+"""
+import json
+import re
+import subprocess
+import sys
+import time
+
+CALL = "/proc/acpi/call"
+WMBB = r"\_SB.WMI.WMBB"
+# fan tach period -> RPM. Calibratable: if your reported RPM is off, scale this.
+# ponytail: single constant, per-fan constants if the two fans ever diverge.
+RPM_CONST = 2156220
+TDP_MIN, TDP_MAX = 15, 54
+
+
+def _ensure_module():
+    subprocess.run(["modprobe", "acpi_call"], check=False,
+                   stderr=subprocess.DEVNULL)
+
+
+def _call(method_id: int) -> bytes:
+    """Invoke WMBB(0, method_id, <1-byte buf>) and return the response bytes."""
+    with open(CALL, "w") as f:
+        f.write(f"{WMBB} 0x0 {method_id:#x} b0x00")
+    with open(CALL, "rb") as f:
+        raw = f.read().replace(b"\x00", b"").decode("latin1").strip()
+    # integer return e.g. "0x62", or buffer "{0x00, 0x04, ...}"
+    if raw.startswith("{"):
+        return bytes(int(x, 16) for x in re.findall(r"0x[0-9a-fA-F]+", raw))
+    if raw.startswith("0x"):
+        return bytes([int(raw, 16) & 0xFF])
+    return b""
+
+
+def _duty_pct(raw: int) -> int:
+    # Aero PWM table anchors: 0x44=30% .. 0xE5=100%. Linear, clamped.
+    if raw <= 0x44:
+        return max(0, round(raw / 0x44 * 30))
+    return min(100, round(30 + (raw - 0x44) * 70 / (0xE5 - 0x44)))
+
+
+def _rpm(period: int) -> int:
+    return round(RPM_CONST / period) if period else 0
+
+
+def sample() -> dict:
+    fan = _call(0x0C)
+    cpu = _call(0x03)
+    if len(fan) < 10:
+        return {"cpu": None, "duty": None, "rpm1": None, "rpm2": None}
+    p1 = (fan[2] << 8) | fan[3]
+    p2 = (fan[4] << 8) | fan[5]
+    return {
+        "cpu": cpu[0] if cpu else None,
+        "duty": _duty_pct(fan[9]),
+        "rpm1": _rpm(p1),
+        "rpm2": _rpm(p2),
+    }
+
+
+def set_tdp(watts: int):
+    w = max(TDP_MIN, min(TDP_MAX, int(watts)))
+    if not _which("ryzenadj"):
+        sys.exit("ryzenadj not installed (paru -S ryzenadj)")
+    mw = w * 1000
+    subprocess.run(["ryzenadj", f"--stapm-limit={mw}", f"--fast-limit={mw}",
+                    f"--slow-limit={mw}"], check=True)
+    print(f"TDP set to {w}W")
+
+
+def _which(x):
+    from shutil import which
+    return which(x)
+
+
+def main():
+    if len(sys.argv) < 2:
+        sys.exit("usage: laptop-control-helper monitor|read|set-tdp <w>")
+    cmd = sys.argv[1]
+    _ensure_module()
+    if cmd == "read":
+        print(json.dumps(sample()), flush=True)
+    elif cmd == "monitor":
+        # exit when the GUI closes our stdout (root child can't be signalled by user)
+        try:
+            while True:
+                print(json.dumps(sample()), flush=True)
+                time.sleep(1)
+        except BrokenPipeError:
+            sys.exit(0)
+    elif cmd == "set-tdp":
+        set_tdp(sys.argv[2])
+    else:
+        sys.exit(f"unknown command: {cmd}")
+
+
+if __name__ == "__main__":
+    main()

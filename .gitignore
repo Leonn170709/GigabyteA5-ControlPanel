@@ -1,0 +1,8 @@
+probe-out/
+__pycache__/
+*.ko
+*.o
+*.mod*
+Module.symvers
+modules.order
+.impeccable/

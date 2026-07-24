@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Root test harness for the A5 panel. Calls firmware ACPI/WMI methods and
+# reads/writes ONLY the EC shared-memory window (0xFE500100..+0x400) — the
+# region the firmware itself uses for fan curve + keyboard RGB. memwrite is
+# hard-clamped to that window, so it cannot touch arbitrary kernel memory.
+# NOPASSWD sudo target for iterating on fan/RGB. Remove: sudo rm /etc/sudoers.d/labctl
+set -uo pipefail
+DIR="$(cd "$(dirname "$0")" && pwd)"   # works from any install location
+modprobe acpi_call 2>/dev/null
+CALL=/proc/acpi/call
+
+case "${1:-}" in
+  acpi)   printf '%s' "$2" > "$CALL"; tr -d '\0' < "$CALL"; echo ;;
+  wmb)    id="$2"; buf="${3:-b0x00}"
+          printf '%s' "\\_SB.WMI.WMBB 0x0 $id $buf" > "$CALL"; tr -d '\0' < "$CALL"; echo ;;
+  memread)  # memread <hexoffset> <len>   (offset within EC window)
+          python3 "$DIR"/ecmem.py read "$2" "$3" ;;
+  memwrite) # memwrite <hexoffset> <hexbyte> [hexbyte...]  (consecutive bytes)
+          shift; python3 "$DIR"/ecmem.py write "$@" ;;
+  ppd)    if [ -n "${2:-}" ]; then powerprofilesctl set "$2"; else powerprofilesctl get; fi ;;
+  ryzenadj) shift; ryzenadj "$@" ;;
+  # DKMS rebuilds a5ctl per kernel; modprobe picks the right build. The local
+  # kmod/a5ctl.ko is only the dev tree and goes stale on every kernel update.
+  modload)   rmmod a5ctl 2>/dev/null; modprobe a5ctl && echo loaded ;;
+  modunload) rmmod a5ctl && echo unloaded ;;
+  dsm)    shift; echo "$*" > /sys/kernel/a5ctl/call && cat /sys/kernel/a5ctl/last ;;
+  mon)    python3 "$DIR"/laptop-control-helper read ;;  # one JSON fan/cpu sample (as root, no pkexec)
+  dmesg)  dmesg | tail -n "${2:-15}" ;;
+  reboot) sync; sleep 1; systemctl reboot ;;
+  *) echo "usage: labctl acpi '<call>' | wmb <id> [buf] | memread <off> <len> | memwrite <off> <byte> | ppd | ryzenadj"; exit 1 ;;
+esac
